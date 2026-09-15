@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hanjang-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DATABASE:-hanjang}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - hanjang-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-postgres} -d ${POSTGRES_DATABASE:-hanjang}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  hanjang-postgres-data:
