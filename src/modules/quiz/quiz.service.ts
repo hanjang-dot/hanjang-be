@@ -6,7 +6,7 @@ import {
 } from "src/common/errors/custom-exceptions";
 import { QuizErrorMessage } from "./quiz.error";
 import { QuizRepository } from "./quiz.repository";
-import { AddQuizInput, QuizDirection, QuizSessionStatus, QuizType } from "./quiz.types";
+import { AddQuizInput, QuizDirection, QuizSessionStatus, QuizType, UpdateQuizInput } from "./quiz.types";
 
 const TODAY_QUIZ_SET_SIZE = 10;
 
@@ -79,8 +79,30 @@ export class QuizService {
     return quiz;
   }
 
-  private validateAddQuizInput(input: AddQuizInput) {
-    if (input.choices.length !== QUIZ_CHOICE_COUNT[input.type]) {
+  async updateQuiz(input: UpdateQuizInput) {
+    const existing = await this.findQuiz(input.quizId);
+    const merged = {
+      type: (input.type ?? existing.type) as QuizType,
+      prompt: input.prompt ?? existing.prompt,
+      choices: input.choices ?? existing.choices,
+      answer: input.answer ?? existing.answer,
+      direction: input.direction === undefined ? existing.direction : input.direction,
+    };
+    this.validateAddQuizInput(merged);
+    return this.quizRepository.updateQuiz(input.quizId, {
+      ...merged,
+      direction: merged.direction ?? null,
+    });
+  }
+
+  async deleteQuiz(quizId: string) {
+    const deleted = await this.quizRepository.deleteQuiz(quizId);
+    if (!deleted) throw new CustomNotFoundException(QuizErrorMessage.QuizNotFound);
+    return { deleted: true };
+  }
+
+  private validateAddQuizInput(input: { type: string; choices: string[]; answer: string; direction?: string | null }) {
+    if (input.choices.length !== QUIZ_CHOICE_COUNT[input.type as QuizType]) {
       throw new CustomBadRequestException(QuizErrorMessage.InvalidQuizChoices);
     }
     if (!input.choices.includes(input.answer)) {

@@ -1,8 +1,9 @@
 import { Injectable } from "@nestjs/common";
-import { CustomNotFoundException } from "src/common/errors/custom-exceptions";
+import { CustomConflictException, CustomNotFoundException } from "src/common/errors/custom-exceptions";
+import { isPgError } from "src/common/errors/pg-error";
 import { ExamErrorMessage } from "./exam.error";
 import { ExamRepository } from "./exam.repository";
-import { CreateExamPaperInput } from "./exam.types";
+import { CreateExamPaperInput, UpdateExamPaperInput } from "./exam.types";
 
 @Injectable()
 export class ExamService {
@@ -32,5 +33,24 @@ export class ExamService {
     const examPaper = await this.examRepository.setPublished(examPaperId, published);
     if (!examPaper) throw new CustomNotFoundException(ExamErrorMessage.ExamPaperNotFound);
     return examPaper;
+  }
+
+  async updateExamPaper(input: UpdateExamPaperInput) {
+    const { examPaperId, ...fields } = input;
+    const examPaper = await this.examRepository.updateExamPaper(examPaperId, fields);
+    if (!examPaper) throw new CustomNotFoundException(ExamErrorMessage.ExamPaperNotFound);
+    return examPaper;
+  }
+
+  async deleteExamPaper(examPaperId: string) {
+    let deleted: boolean;
+    try {
+      deleted = await this.examRepository.deleteExamPaper(examPaperId);
+    } catch (error) {
+      if (isPgError(error, "23503")) throw new CustomConflictException(ExamErrorMessage.ExamPaperInUse);
+      throw error;
+    }
+    if (!deleted) throw new CustomNotFoundException(ExamErrorMessage.ExamPaperNotFound);
+    return { deleted: true };
   }
 }

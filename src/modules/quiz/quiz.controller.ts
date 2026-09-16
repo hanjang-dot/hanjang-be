@@ -1,9 +1,16 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { JwtAccessTokenGuard } from "src/guards/accessToken.guard";
 import { JwtAdminGuard } from "src/guards/adminToken.guard";
 import { AuthRequest } from "src/modules/auth/auth.types";
 import { QuizService } from "./quiz.service";
-import { AddQuizInput, QuizDirection, QuizPayload, StartQuizSessionInput, QuizType } from "./quiz.types";
+import {
+  AddQuizInput,
+  QuizDirection,
+  QuizPayload,
+  StartQuizSessionInput,
+  QuizType,
+  UpdateQuizInput,
+} from "./quiz.types";
 
 const toPublicPayload = (quiz: {
   quizId: string;
@@ -67,8 +74,18 @@ export class AdminQuizController {
     return this.quizService.addQuiz(input);
   }
 
+  @Patch(":id")
+  update(@Param("id") quizId: string, @Body() input: UpdateQuizInput) {
+    return this.quizService.updateQuiz({ ...input, quizId });
+  }
+
   @Patch(":id/publish")
   setPublished(@Param("id") quizId: string, @Body() body: { published: boolean }) {
     return this.quizService.setPublished(quizId, body.published === true);
+  }
+
+  @Delete(":id")
+  remove(@Param("id") quizId: string) {
+    return this.quizService.deleteQuiz(quizId);
   }
 }

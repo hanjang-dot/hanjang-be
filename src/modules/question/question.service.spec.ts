@@ -13,8 +13,9 @@ const validInput: AddQuestionInput = {
 
 const createService = () => {
   const addQuestion = jest.fn<QuestionRepository["addQuestion"]>();
-  const repository = { addQuestion } as unknown as QuestionRepository;
-  return { service: new QuestionService(repository), addQuestion };
+  const deleteQuestion = jest.fn<QuestionRepository["deleteQuestion"]>();
+  const repository = { addQuestion, deleteQuestion } as unknown as QuestionRepository;
+  return { service: new QuestionService(repository), addQuestion, deleteQuestion };
 };
 
 describe("QuestionService.addQuestion", () => {
@@ -48,9 +49,30 @@ describe("QuestionService.addQuestion", () => {
     await expect(service.addQuestion(validInput)).rejects.toMatchObject({ status: 400 });
   });
 
+  it("drizzle가 cause로 감싼 pg 에러도 매핑한다", async () => {
+    const { service, addQuestion } = createService();
+    const pgError = Object.assign(new Error("pg"), { code: "23505" });
+    addQuestion.mockRejectedValue(Object.assign(new Error("Failed query"), { cause: pgError }));
+    await expect(service.addQuestion(validInput)).rejects.toMatchObject({ status: 409 });
+  });
+
   it("유효한 입력은 저장된 문항을 반환한다", async () => {
     const { service, addQuestion } = createService();
     addQuestion.mockResolvedValue({ questionId: "q-1" } as never);
     await expect(service.addQuestion(validInput)).resolves.toEqual({ questionId: "q-1" });
+  });
+});
+
+describe("QuestionService.deleteQuestion", () => {
+  it("없는 문항은 404다", async () => {
+    const { service, deleteQuestion } = createService();
+    deleteQuestion.mockResolvedValue(false);
+    await expect(service.deleteQuestion("q-x")).rejects.toMatchObject({ status: 404 });
+  });
+
+  it("답·필기가 참조 중이면 409다", async () => {
+    const { service, deleteQuestion } = createService();
+    deleteQuestion.mockRejectedValue(Object.assign(new Error("fk"), { code: "23503" }));
+    await expect(service.deleteQuestion("q-x")).rejects.toMatchObject({ status: 409 });
   });
 });
