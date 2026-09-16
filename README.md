@@ -65,7 +65,9 @@ pnpm start:dev      # http://localhost:5500 REST, POST /mcp
 
 ## 모듈
 
-`auth`·`user`·`phone`·`database` 유지. `admin`·`exam`·`question`·`session`·`grade`·`quiz`·`mcp` 추가.
+`auth`·`user`·`phone`·`database` 유지. `admin`·`exam`·`question`·`session`·`grade`·`quiz`·`mcp`·`experiments` 추가.
+
+`experiments`는 FO A/B 실험 이벤트 수집: `POST /experiments/events` → `experiment_events` 테이블.
 
 테이블: `users`, `admin`, `adminInvite`, `examPaper`, `question`, `examSession`, `answer`, `stroke`, `quiz`, `quizSession` 외 인증 보조 테이블.
 
