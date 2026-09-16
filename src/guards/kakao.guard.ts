@@ -29,7 +29,8 @@ export class KakaoGuard extends AuthGuard("kakao") {
       return { state };
     }
 
-    const state = randomBytes(32).toString("hex");
+    const client = request.query.client === "mobile" ? ":mobile" : "";
+    const state = randomBytes(32).toString("hex") + client;
     response.cookie("kakao_oauth_state", state, { ...authCookieOptions, maxAge: 5 * 60 * 1000 });
     return { state };
   }
