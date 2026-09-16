@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { JwtModule } from "@nestjs/jwt";
 import { JwtRefreshTokenGuard } from "src/guards/refreshToken.guard";
 import { KakaoGuard } from "src/guards/kakao.guard";
@@ -18,7 +19,12 @@ import { AuthService } from "./auth.service";
     JwtRefreshTokenGuard,
     JwtRefreshTokenStrategy,
     KakaoGuard,
-    KakaoStrategy,
+    {
+      provide: KakaoStrategy,
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) =>
+        configService.get<string>("KAKAO_CLIENT_ID") ? new KakaoStrategy(configService) : null,
+    },
   ],
   exports: [AuthService],
 })
