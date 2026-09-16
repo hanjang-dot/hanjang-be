@@ -1,6 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { randomUUID } from "crypto";
 import { CustomBadRequestException } from "src/common/errors/custom-exceptions";
+import { QuizErrorMessage } from "src/modules/quiz/quiz.error";
+import { QuizSessionStatus } from "src/modules/quiz/quiz.types";
 import { SessionErrorMessage } from "src/modules/session/session.error";
 import { ExamSessionStatus } from "src/modules/session/session.types";
 import { QuestionService } from "src/modules/question/question.service";
@@ -42,7 +44,10 @@ export class GradeService {
   }
 
   async gradeQuizAnswer(userId: string, input: GradeQuizAnswerInput) {
-    await this.quizService.assertOwnedQuizSession(userId, input.quizSessionId);
+    const session = await this.quizService.assertOwnedQuizSession(userId, input.quizSessionId);
+    if (session.status === QuizSessionStatus.Graded || session.status === QuizSessionStatus.Aborted) {
+      throw new CustomBadRequestException(QuizErrorMessage.QuizSessionClosed);
+    }
     await this.quizService.markQuizSessionGrading(input.quizSessionId);
 
     const runId = randomUUID();
