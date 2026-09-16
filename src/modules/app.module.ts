@@ -4,6 +4,7 @@ import { AdminModule } from "./admin/admin.module";
 import { AuthModule } from "./auth/auth.module";
 import { DatabaseModule } from "./database/database.module";
 import { ExamModule } from "./exam/exam.module";
+import { ExperimentsModule } from "./experiments/experiments.module";
 import { GradeModule } from "./grade/grade.module";
 import { McpModule } from "./mcp/mcp.module";
 import { PhoneModule } from "./phone/phone.module";
@@ -29,6 +30,7 @@ import { UserModule } from "./user/user.module";
     GradeModule,
     QuizModule,
     McpModule,
+    ExperimentsModule,
   ],
 })
 export class AppModule {}

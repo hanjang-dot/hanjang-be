@@ -180,6 +180,15 @@ export const quizSessions = pgTable("quizSession", {
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
+export const experimentEvents = pgTable("experimentEvent", {
+  eventId: uuid("eventId").primaryKey().defaultRandom(),
+  key: varchar("key", { length: 100 }).notNull(),
+  variant: varchar("variant", { length: 20 }).notNull(),
+  event: varchar("event", { length: 20 }).notNull(),
+  meta: jsonb("meta").$type<Record<string, unknown>>(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type RefreshToken = typeof refreshTokens.$inferSelect;
 export type AuthIdentity = typeof authIdentities.$inferSelect;
@@ -194,3 +203,4 @@ export type Answer = typeof answers.$inferSelect;
 export type Stroke = typeof strokes.$inferSelect;
 export type Quiz = typeof quizzes.$inferSelect;
 export type QuizSession = typeof quizSessions.$inferSelect;
+export type ExperimentEvent = typeof experimentEvents.$inferSelect;
