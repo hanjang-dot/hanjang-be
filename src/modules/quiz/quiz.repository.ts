@@ -40,6 +40,23 @@ export class QuizRepository {
     return quiz;
   }
 
+  async updateQuiz(
+    quizId: string,
+    input: { type: string; prompt: string; choices: string[]; answer: string; direction: string | null },
+  ): Promise<Quiz | undefined> {
+    const [quiz] = await this.db
+      .update(quizzes)
+      .set({ ...input, updatedAt: new Date() })
+      .where(eq(quizzes.quizId, quizId))
+      .returning();
+    return quiz;
+  }
+
+  async deleteQuiz(quizId: string): Promise<boolean> {
+    const rows = await this.db.delete(quizzes).where(eq(quizzes.quizId, quizId)).returning({ quizId: quizzes.quizId });
+    return rows.length > 0;
+  }
+
   async createQuizSession(input: { userId: string; quizIds: string[] }): Promise<QuizSession> {
     const [session] = await this.db.insert(quizSessions).values(input).returning();
     return session;

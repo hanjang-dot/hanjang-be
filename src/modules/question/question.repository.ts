@@ -36,4 +36,12 @@ export class QuestionRepository {
       .returning();
     return question;
   }
+
+  async deleteQuestion(questionId: string): Promise<boolean> {
+    const rows = await this.db
+      .delete(questions)
+      .where(eq(questions.questionId, questionId))
+      .returning({ questionId: questions.questionId });
+    return rows.length > 0;
+  }
 }

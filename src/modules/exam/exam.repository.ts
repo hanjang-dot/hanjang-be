@@ -2,7 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { desc, eq, isNotNull, isNull } from "drizzle-orm";
 import { Database, DRIZZLE } from "src/modules/database/database.module";
 import { examPapers, type ExamPaper } from "src/modules/database/schema";
-import { CreateExamPaperInput } from "./exam.types";
+import { CreateExamPaperInput, UpdateExamPaperInput } from "./exam.types";
 
 @Injectable()
 export class ExamRepository {
@@ -38,5 +38,25 @@ export class ExamRepository {
       .where(eq(examPapers.examPaperId, examPaperId))
       .returning();
     return examPaper;
+  }
+
+  async updateExamPaper(
+    examPaperId: string,
+    input: Omit<UpdateExamPaperInput, "examPaperId">,
+  ): Promise<ExamPaper | undefined> {
+    const [examPaper] = await this.db
+      .update(examPapers)
+      .set({ ...input, updatedAt: new Date() })
+      .where(eq(examPapers.examPaperId, examPaperId))
+      .returning();
+    return examPaper;
+  }
+
+  async deleteExamPaper(examPaperId: string): Promise<boolean> {
+    const rows = await this.db
+      .delete(examPapers)
+      .where(eq(examPapers.examPaperId, examPaperId))
+      .returning({ examPaperId: examPapers.examPaperId });
+    return rows.length > 0;
   }
 }

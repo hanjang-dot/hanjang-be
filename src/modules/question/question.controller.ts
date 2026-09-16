@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from "@nestjs/common";
 import { JwtAdminGuard } from "src/guards/adminToken.guard";
 import { QuestionService } from "./question.service";
 import { AddQuestionInput, QuestionPayload, UpdateQuestionInput } from "./question.types";
@@ -48,5 +48,10 @@ export class AdminQuestionController {
   @Patch("questions/:id")
   update(@Param("id") questionId: string, @Body() input: UpdateQuestionInput) {
     return this.questionService.updateQuestion({ ...input, questionId });
+  }
+
+  @Delete("questions/:id")
+  remove(@Param("id") questionId: string) {
+    return this.questionService.deleteQuestion(questionId);
   }
 }

@@ -4,4 +4,5 @@ export enum QuestionErrorMessage {
   DuplicateQuestionNumber = "같은 시험지에 같은 번호의 문항이 이미 있습니다.",
   InvalidExamPaper = "시험지가 잘못되었습니다.",
   QuestionNotFound = "문항을 찾을 수 없습니다.",
+  QuestionInUse = "답이나 필기가 참조 중이라 삭제할 수 없습니다.",
 }

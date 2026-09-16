@@ -4,6 +4,7 @@ import {
   CustomConflictException,
   CustomNotFoundException,
 } from "src/common/errors/custom-exceptions";
+import { isPgError } from "src/common/errors/pg-error";
 import { QuestionErrorMessage } from "./question.error";
 import { QuestionRepository } from "./question.repository";
 import { AddQuestionInput, UpdateQuestionInput } from "./question.types";
@@ -27,9 +28,8 @@ export class QuestionService {
     try {
       return await this.questionRepository.addQuestion(input);
     } catch (error) {
-      if (this.isPgError(error, "23505"))
-        throw new CustomConflictException(QuestionErrorMessage.DuplicateQuestionNumber);
-      if (this.isPgError(error, "23503")) throw new CustomBadRequestException(QuestionErrorMessage.InvalidExamPaper);
+      if (isPgError(error, "23505")) throw new CustomConflictException(QuestionErrorMessage.DuplicateQuestionNumber);
+      if (isPgError(error, "23503")) throw new CustomBadRequestException(QuestionErrorMessage.InvalidExamPaper);
       throw error;
     }
   }
@@ -47,10 +47,21 @@ export class QuestionService {
         answer: input.answer,
       });
     } catch (error) {
-      if (this.isPgError(error, "23505"))
-        throw new CustomConflictException(QuestionErrorMessage.DuplicateQuestionNumber);
+      if (isPgError(error, "23505")) throw new CustomConflictException(QuestionErrorMessage.DuplicateQuestionNumber);
       throw error;
     }
+  }
+
+  async deleteQuestion(questionId: string) {
+    let deleted: boolean;
+    try {
+      deleted = await this.questionRepository.deleteQuestion(questionId);
+    } catch (error) {
+      if (isPgError(error, "23503")) throw new CustomConflictException(QuestionErrorMessage.QuestionInUse);
+      throw error;
+    }
+    if (!deleted) throw new CustomNotFoundException(QuestionErrorMessage.QuestionNotFound);
+    return { deleted: true };
   }
 
   private validateAddQuestionInput(input: { choices: string[]; answer: string }) {
@@ -60,9 +71,5 @@ export class QuestionService {
     if (!input.choices.includes(input.answer)) {
       throw new CustomBadRequestException(QuestionErrorMessage.AnswerNotInChoices);
     }
-  }
-
-  private isPgError(error: unknown, code: string) {
-    return typeof error === "object" && error !== null && "code" in error && error.code === code;
   }
 }

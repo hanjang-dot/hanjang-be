@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { JwtAdminGuard } from "src/guards/adminToken.guard";
 import { ExamService } from "./exam.service";
-import { CreateExamPaperInput } from "./exam.types";
+import { CreateExamPaperInput, UpdateExamPaperInput } from "./exam.types";
 
 @Controller("exams")
 export class ExamController {
@@ -38,8 +38,18 @@ export class AdminExamController {
     return this.examService.createExamPaper(input);
   }
 
+  @Patch(":id")
+  update(@Param("id") examPaperId: string, @Body() input: UpdateExamPaperInput) {
+    return this.examService.updateExamPaper({ ...input, examPaperId });
+  }
+
   @Patch(":id/publish")
   setPublished(@Param("id") examPaperId: string, @Body() body: { published: boolean }) {
     return this.examService.setPublished(examPaperId, body.published === true);
+  }
+
+  @Delete(":id")
+  remove(@Param("id") examPaperId: string) {
+    return this.examService.deleteExamPaper(examPaperId);
   }
 }

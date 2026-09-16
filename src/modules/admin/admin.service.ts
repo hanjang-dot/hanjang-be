@@ -4,6 +4,7 @@ import { JwtService, JwtSignOptions } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
 import { randomBytes, randomUUID } from "crypto";
 import { CustomBadRequestException, CustomUnauthorizedException } from "src/common/errors/custom-exceptions";
+import { isPgError } from "src/common/errors/pg-error";
 import { Admin } from "src/modules/database/schema";
 import { AdminErrorMessage } from "./admin.error";
 import { AdminRepository } from "./admin.repository";
@@ -74,7 +75,7 @@ export class AdminService {
     try {
       return await operation;
     } catch (error) {
-      if (typeof error === "object" && error !== null && "code" in error && error.code === "23505") {
+      if (isPgError(error, "23505")) {
         throw new CustomBadRequestException(AdminErrorMessage.DuplicateAdminLoginId);
       }
       throw error;

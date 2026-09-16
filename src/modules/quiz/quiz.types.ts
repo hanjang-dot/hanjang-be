@@ -31,6 +31,15 @@ export class AddQuizInput {
   direction?: QuizDirection;
 }
 
+export class UpdateQuizInput {
+  quizId!: string;
+  type?: QuizType;
+  prompt?: string;
+  choices?: string[];
+  answer?: string;
+  direction?: QuizDirection | null;
+}
+
 export enum QuizSessionStatus {
   Idle = "idle",
   Grading = "grading",
