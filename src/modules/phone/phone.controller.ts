@@ -6,7 +6,6 @@ import { AuthRequest } from "src/modules/auth/auth.types";
 import { PhoneService } from "./phone.service";
 import {
   AttachPhoneToMeInput,
-  CompleteKakaoPhoneSignupInput,
   CompletePhoneSignupInput,
   RequestPhoneCodeInput,
   ResetPasswordWithPhoneInput,
@@ -34,17 +33,6 @@ export class PhoneController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const tokenData = await this.phoneService.completePhoneSignup(input, deviceIdFromRequest(req));
-    setTokenCookies(res, tokenData);
-    return tokenData;
-  }
-
-  @Post("kakao-signup")
-  async completeKakaoPhoneSignup(
-    @Body() input: CompleteKakaoPhoneSignupInput,
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    const tokenData = await this.phoneService.completeKakaoPhoneSignup(input, deviceIdFromRequest(req));
     setTokenCookies(res, tokenData);
     return tokenData;
   }

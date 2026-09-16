@@ -63,16 +63,6 @@ export const phoneVerificationTokens = pgTable("phoneVerificationToken", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
-export const kakaoPhoneVerificationTokens = pgTable("kakaoPhoneVerificationToken", {
-  tokenHash: text("tokenHash").primaryKey(),
-  userId: uuid("userId").references(() => users.userId),
-  providerUserId: varchar("providerUserId", { length: 255 }).notNull(),
-  email: varchar("email", { length: 255 }),
-  expiresAt: timestamp("expiresAt").notNull(),
-  usedAt: timestamp("usedAt"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
-
 export const admins = pgTable("admin", {
   adminId: uuid("adminId").primaryKey(),
   loginId: varchar("loginId", { length: 50 }).notNull().unique(),
@@ -195,7 +185,6 @@ export type RefreshToken = typeof refreshTokens.$inferSelect;
 export type AuthIdentity = typeof authIdentities.$inferSelect;
 export type PhoneVerification = typeof phoneVerifications.$inferSelect;
 export type PhoneVerificationToken = typeof phoneVerificationTokens.$inferSelect;
-export type KakaoPhoneVerificationToken = typeof kakaoPhoneVerificationTokens.$inferSelect;
 export type Admin = typeof admins.$inferSelect;
 export type AdminInvite = typeof adminInvites.$inferSelect;
 export type ExamPaper = typeof examPapers.$inferSelect;

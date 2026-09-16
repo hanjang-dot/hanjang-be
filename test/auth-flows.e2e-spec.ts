@@ -37,7 +37,6 @@ describe("auth flows (http e2e)", () => {
     process.env.JWT_REFRESH_TOKEN_EXP = "15m";
     process.env.KAKAO_CLIENT_ID = "test";
     process.env.KAKAO_CALLBACK_URL = "http://localhost/auth/kakao/callback";
-    process.env.KAKAO_SIGNUP_TOKEN_SECRET = "kakao-secret";
 
     authService = {
       signin: jest.fn(() => issueTokens()),
@@ -49,7 +48,6 @@ describe("auth flows (http e2e)", () => {
       requestPhoneCode: jest.fn(async () => ({ ok: true })),
       verifyPhoneCode: jest.fn(async () => ({ existingUser: false, phoneVerificationToken: "signup-token" })),
       completePhoneSignup: jest.fn(() => issueTokens()),
-      completeKakaoPhoneSignup: jest.fn(() => issueTokens()),
     };
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -114,17 +112,6 @@ describe("auth flows (http e2e)", () => {
       .expect(201);
     expect(loggedOut.body.ok).toBe(true);
     expect(String(loggedOut.headers["set-cookie"])).toContain("refresh_token=;");
-  });
-
-  it("kakao phone signup sets auth cookies", async () => {
-    const response = await post("/phone/kakao-signup", {
-      phoneVerificationToken: "signup-token",
-      kakaoPhoneVerificationToken: "kakao-token",
-    }).expect(201);
-
-    expect(response.headers["set-cookie"]).toEqual(
-      expect.arrayContaining([expect.stringContaining("access_token="), expect.stringContaining("refresh_token=")]),
-    );
   });
 
   it("rejects kakao callback without oauth state cookie", async () => {

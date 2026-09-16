@@ -8,12 +8,8 @@ import { isPgError } from "src/common/errors/pg-error";
 import { User } from "src/modules/database/schema";
 import { UserService } from "src/modules/user/user.service";
 import { AuthErrorMessage } from "./auth.error";
-import {
-  AuthRepository,
-  KakaoPhoneVerificationTokenConsumeFailedError,
-  PhoneVerificationTokenConsumeFailedError,
-} from "./auth.repository";
-import { KakaoLoginResult, KakaoProfile, SigninAuthInput, SignupAuthInput } from "./auth.types";
+import { AuthRepository } from "./auth.repository";
+import { KakaoProfile, SigninAuthInput, SignupAuthInput } from "./auth.types";
 
 @Injectable()
 export class AuthService {
@@ -64,57 +60,19 @@ export class AuthService {
     return { isSigned: !!user };
   }
 
-  async loginWithKakao(profile: KakaoProfile): Promise<KakaoLoginResult> {
+  async loginWithKakao(profile: KakaoProfile, deviceId: string) {
     const foundUser = await this.authRepository.findUserByIdentity("kakao", profile.providerUserId);
+    const user =
+      foundUser ??
+      (await this.mapDuplicateUserError(
+        this.authRepository.createKakaoUser({
+          userId: uuidv4(),
+          providerUserId: profile.providerUserId,
+          email: profile.email ?? `kakao_${profile.providerUserId}@kakao.local`,
+          password: await bcrypt.hash(uuidv4(), 10),
+        }),
+      ));
     this.logger.log(JSON.stringify({ event: "auth_kakao_login", result: "token_issued", existingUser: !!foundUser }));
-    return { kakaoPhoneVerificationToken: await this.createKakaoPhoneVerificationToken(profile, foundUser?.userId) };
-  }
-
-  async completeKakaoPhoneSignup(
-    input: { phoneVerificationToken: string; kakaoPhoneVerificationToken: string },
-    deviceId: string,
-  ) {
-    const [phoneVerificationToken, kakaoToken] = await Promise.all([
-      this.findPhoneVerificationToken(input.phoneVerificationToken),
-      this.authRepository.findKakaoPhoneVerificationToken(input.kakaoPhoneVerificationToken),
-    ]);
-    if (!kakaoToken) throw new CustomUnauthorizedException(AuthErrorMessage.InvalidKakaoPhoneVerificationToken);
-
-    if (kakaoToken.userId) {
-      const user = await this.authRepository.findUser(kakaoToken.userId);
-      if (!user) throw new CustomUnauthorizedException(AuthErrorMessage.InvalidKakaoPhoneVerificationToken);
-      if (user.phone && user.phone !== phoneVerificationToken.phoneE164)
-        throw new CustomUnauthorizedException(AuthErrorMessage.PhoneVerificationRequired);
-
-      const updatedUser = await this.mapDuplicateUserError(
-        this.mapTokenConsumeError(
-          this.authRepository.attachPhoneWithKakaoPhoneVerificationTokens({
-            userId: user.userId,
-            phone: phoneVerificationToken.phoneE164,
-            phoneVerificationToken: input.phoneVerificationToken,
-            kakaoPhoneVerificationToken: input.kakaoPhoneVerificationToken,
-          }),
-        ),
-      );
-      if (!updatedUser) throw new CustomUnauthorizedException(AuthErrorMessage.InvalidKakaoPhoneVerificationToken);
-      return this.issueTokens(updatedUser, deviceId);
-    }
-
-    const user = await this.mapDuplicateUserError(
-      this.mapTokenConsumeError(
-        this.authRepository.createKakaoPhoneUserWithTokens(
-          {
-            userId: uuidv4(),
-            providerUserId: kakaoToken.providerUserId,
-            email: kakaoToken.email ?? `kakao_${kakaoToken.providerUserId}@kakao.local`,
-            password: await bcrypt.hash(uuidv4(), 10),
-            phone: phoneVerificationToken.phoneE164,
-          },
-          input,
-        ),
-      ),
-    );
-
     return this.issueTokens(user, deviceId);
   }
 
@@ -145,26 +103,6 @@ export class AuthService {
     return this.issueTokens(user, deviceId);
   }
 
-  private async createKakaoPhoneVerificationToken(profile: KakaoProfile, userId?: string) {
-    const token = await this.jwtService.signAsync(
-      { provider: "kakao", providerUserId: profile.providerUserId },
-      {
-        secret: this.configService.getOrThrow<string>("KAKAO_SIGNUP_TOKEN_SECRET"),
-        expiresIn: "15m" as JwtSignOptions["expiresIn"],
-      },
-    );
-
-    await this.authRepository.createKakaoPhoneVerificationToken({
-      token,
-      userId,
-      providerUserId: profile.providerUserId,
-      email: profile.email,
-      expiresAt: new Date(Date.now() + 15 * 60 * 1000),
-    });
-
-    return token;
-  }
-
   private async findPhoneVerificationToken(token: string) {
     const phoneVerificationToken = await this.authRepository.findPhoneVerificationToken(token);
     if (!phoneVerificationToken) throw new CustomUnauthorizedException(AuthErrorMessage.InvalidPhoneVerificationToken);
@@ -175,20 +113,6 @@ export class AuthService {
   private async consumePhoneVerificationToken(token: string) {
     if (!(await this.authRepository.consumePhoneVerificationToken(token))) {
       throw new CustomUnauthorizedException(AuthErrorMessage.InvalidPhoneVerificationToken);
-    }
-  }
-
-  private async mapTokenConsumeError<T>(operation: Promise<T>) {
-    try {
-      return await operation;
-    } catch (error) {
-      if (error instanceof PhoneVerificationTokenConsumeFailedError) {
-        throw new CustomUnauthorizedException(AuthErrorMessage.InvalidPhoneVerificationToken);
-      }
-      if (error instanceof KakaoPhoneVerificationTokenConsumeFailedError) {
-        throw new CustomUnauthorizedException(AuthErrorMessage.InvalidKakaoPhoneVerificationToken);
-      }
-      throw error;
     }
   }
 
