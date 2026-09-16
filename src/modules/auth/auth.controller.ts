@@ -2,7 +2,7 @@ import { Body, Controller, Get, Post, Query, Req, Res, UseGuards } from "@nestjs
 import { Request, Response } from "express";
 import { KakaoGuard } from "src/guards/kakao.guard";
 import { JwtRefreshTokenGuard } from "src/guards/refreshToken.guard";
-import { deviceIdFromRequest, setTokenCookies } from "./auth-http";
+import { deviceIdFromRequest, deviceIdOrRandom, setTokenCookies } from "./auth-http";
 import { AuthService } from "./auth.service";
 import { authCookieOptions } from "./cookie-options";
 import { KakaoRequest, RefreshAuthRequest, SigninAuthInput, SignupAuthInput } from "./auth.types";
@@ -53,10 +53,17 @@ export class AuthController {
 
   @UseGuards(KakaoGuard)
   @Get("kakao/callback")
-  async kakaoCallback(@Req() req: KakaoRequest, @Res({ passthrough: true }) res: Response) {
-    const result = await this.authService.loginWithKakao(req.user);
+  async kakaoCallback(@Req() req: KakaoRequest, @Res() res: Response) {
+    const tokenData = await this.authService.loginWithKakao(req.user, deviceIdOrRandom(req));
     res.clearCookie("kakao_oauth_state", authCookieOptions);
-    res.cookie("kakao_phone_verification_token", result.kakaoPhoneVerificationToken, authCookieOptions);
-    return { kakaoPhoneVerificationToken: result.kakaoPhoneVerificationToken };
+    const state = req.query.state;
+    if (typeof state === "string" && state.split(":").at(-1) === "mobile") {
+      const scheme = process.env.KAKAO_MOBILE_REDIRECT_SCHEME ?? "hanjang";
+      const access = encodeURIComponent(tokenData.accessToken);
+      const refresh = encodeURIComponent(tokenData.refreshToken);
+      return res.redirect(`${scheme}://auth/kakao?access=${access}&refresh=${refresh}`);
+    }
+    setTokenCookies(res, tokenData);
+    return res.json(tokenData);
   }
 }

@@ -50,10 +50,6 @@ export type KakaoProfile = {
   email?: string;
 };
 
-export type KakaoLoginResult = {
-  kakaoPhoneVerificationToken: string;
-};
-
 export class SigninAuthInput {
   email!: string;
   password!: string;

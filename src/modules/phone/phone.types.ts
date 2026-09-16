@@ -32,11 +32,6 @@ export class CompletePhoneSignupInput {
   password!: string;
 }
 
-export class CompleteKakaoPhoneSignupInput {
-  phoneVerificationToken!: string;
-  kakaoPhoneVerificationToken!: string;
-}
-
 export class ResetPasswordWithPhoneInput {
   phone!: string;
   code!: string;

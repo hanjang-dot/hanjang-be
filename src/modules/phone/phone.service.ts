@@ -14,7 +14,6 @@ import { PhoneErrorMessage } from "./phone.error";
 import { PhoneRepository } from "./phone.repository";
 import {
   AttachPhoneToMeInput,
-  CompleteKakaoPhoneSignupInput,
   CompletePhoneSignupInput,
   RequestPhoneCodeInput,
   ResetPasswordWithPhoneInput,
@@ -142,16 +141,6 @@ export class PhoneService {
         password: input.password,
         userName: "",
         phoneVerificationToken: input.phoneVerificationToken,
-      },
-      deviceId,
-    );
-  }
-
-  async completeKakaoPhoneSignup(input: CompleteKakaoPhoneSignupInput, deviceId: string) {
-    return this.authService.completeKakaoPhoneSignup(
-      {
-        phoneVerificationToken: input.phoneVerificationToken,
-        kakaoPhoneVerificationToken: input.kakaoPhoneVerificationToken,
       },
       deviceId,
     );

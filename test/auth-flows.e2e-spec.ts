@@ -37,7 +37,6 @@ describe("auth flows (http e2e)", () => {
     process.env.JWT_REFRESH_TOKEN_EXP = "15m";
     process.env.KAKAO_CLIENT_ID = "test";
     process.env.KAKAO_CALLBACK_URL = "http://localhost/auth/kakao/callback";
-    process.env.KAKAO_SIGNUP_TOKEN_SECRET = "kakao-secret";
 
     authService = {
       signin: jest.fn(() => issueTokens()),
@@ -49,7 +48,6 @@ describe("auth flows (http e2e)", () => {
       requestPhoneCode: jest.fn(async () => ({ ok: true })),
       verifyPhoneCode: jest.fn(async () => ({ existingUser: false, phoneVerificationToken: "signup-token" })),
       completePhoneSignup: jest.fn(() => issueTokens()),
-      completeKakaoPhoneSignup: jest.fn(() => issueTokens()),
     };
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -104,10 +102,7 @@ describe("auth flows (http e2e)", () => {
     const cookies = signedIn.headers["set-cookie"];
     expect(cookies).toEqual(expect.arrayContaining([expect.stringContaining("refresh_token=")]));
 
-    const refreshed = await request(app.getHttpServer())
-      .post("/auth/refresh")
-      .set("Cookie", cookies)
-      .expect(201);
+    const refreshed = await request(app.getHttpServer()).post("/auth/refresh").set("Cookie", cookies).expect(201);
     expect(refreshed.body.accessToken).toBeDefined();
     expect(authService.compareUserRefreshToken).toHaveBeenCalled();
 
@@ -119,19 +114,26 @@ describe("auth flows (http e2e)", () => {
     expect(String(loggedOut.headers["set-cookie"])).toContain("refresh_token=;");
   });
 
-  it("kakao phone signup sets auth cookies", async () => {
-    const response = await post("/phone/kakao-signup", {
-      phoneVerificationToken: "signup-token",
-      kakaoPhoneVerificationToken: "kakao-token",
-    }).expect(201);
-
-    expect(response.headers["set-cookie"]).toEqual(
-      expect.arrayContaining([expect.stringContaining("access_token="), expect.stringContaining("refresh_token=")]),
-    );
-  });
-
   it("rejects kakao callback without oauth state cookie", async () => {
     await request(app.getHttpServer()).get("/auth/kakao/callback?code=abc").expect(401);
+  });
+
+  it("rejects kakao callback with tampered oauth state", async () => {
+    await request(app.getHttpServer())
+      .get("/auth/kakao/callback?code=abc&state=tampered")
+      .set("Cookie", ["kakao_oauth_state=original"])
+      .expect(401);
+  });
+
+  it("threads mobile client through kakao oauth state", async () => {
+    const response = await request(app.getHttpServer()).get("/auth/kakao?client=mobile").expect(302);
+
+    const cookies = response.headers["set-cookie"];
+    const stateCookie = String(cookies).match(/kakao_oauth_state=[^;]+/);
+    expect(stateCookie?.[0]).toContain("%3Amobile");
+
+    const location = new URL(response.headers.location);
+    expect(decodeURIComponent(location.searchParams.get("state") ?? "")).toMatch(/^[0-9a-f]{64}:mobile$/);
   });
 
   it("allows configured CORS origin with credentials", async () => {

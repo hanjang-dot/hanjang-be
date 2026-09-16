@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { v4 as uuidv4 } from "uuid";
 import { CustomUnauthorizedException } from "src/common/errors/custom-exceptions";
 import { AuthErrorMessage } from "./auth.error";
 import { TokenPayload } from "./auth.types";
@@ -11,8 +12,14 @@ export const setTokenCookies = (res: Response, tokenData: TokenPayload) => {
 };
 
 export const deviceIdFromRequest = (req: Request) => {
-  const value = req.headers["x-device-id"];
-  const deviceId = (Array.isArray(value) ? value[0] : value)?.trim();
+  const deviceId = deviceIdFromHeader(req);
   if (!deviceId) throw new CustomUnauthorizedException(AuthErrorMessage.AuthRequired);
   return deviceId;
+};
+
+export const deviceIdOrRandom = (req: Request) => deviceIdFromHeader(req) ?? uuidv4();
+
+const deviceIdFromHeader = (req: Request) => {
+  const value = req.headers["x-device-id"];
+  return (Array.isArray(value) ? value[0] : value)?.trim() || undefined;
 };

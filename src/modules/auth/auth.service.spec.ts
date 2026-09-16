@@ -3,9 +3,9 @@ import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { describe, expect, it, jest } from "@jest/globals";
 import * as bcrypt from "bcrypt";
-import { KakaoPhoneVerificationToken, RefreshToken, PhoneVerificationToken, User } from "src/modules/database/schema";
+import { RefreshToken, PhoneVerificationToken, User } from "src/modules/database/schema";
 import { UserService } from "src/modules/user/user.service";
-import { AuthRepository, KakaoPhoneVerificationTokenConsumeFailedError } from "./auth.repository";
+import { AuthRepository } from "./auth.repository";
 import { AuthService } from "./auth.service";
 
 describe("AuthService", () => {
@@ -105,96 +105,52 @@ describe("AuthService", () => {
     expect(consumePhoneVerificationToken).not.toHaveBeenCalled();
   });
 
-  it("does not consume kakao phone signup tokens on phone mismatch", async () => {
-    const user: User = {
-      userId: "553a6422-2525-4bd5-a5ce-5af75ea475c0",
-      email: "user@example.com",
-      phone: "+821011111111",
-      password: "hash",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    const phoneVerificationToken: PhoneVerificationToken = {
-      tokenHash: "signup-token",
-      phoneE164: "+821022222222",
-      verificationId: "df881b8f-90ed-4358-8581-5e5c132ac01d",
-      expiresAt: new Date(Date.now() + 60_000),
-      usedAt: null,
-      createdAt: new Date(),
-    };
-    const kakaoToken: KakaoPhoneVerificationToken = {
-      tokenHash: "kakao-token",
-      userId: user.userId,
-      providerUserId: "kakao-user",
-      email: user.email,
-      expiresAt: new Date(Date.now() + 60_000),
-      usedAt: null,
-      createdAt: new Date(),
-    };
-    const consumePhoneVerificationToken = jest
-      .fn<() => Promise<PhoneVerificationToken | undefined>>()
-      .mockResolvedValue(phoneVerificationToken);
-    const consumeKakaoPhoneVerificationToken = jest
-      .fn<() => Promise<KakaoPhoneVerificationToken | undefined>>()
-      .mockResolvedValue(kakaoToken);
+  it("issues tokens for an existing kakao identity", async () => {
+    const services = tokenServices();
     const repository = {
-      findPhoneVerificationToken: async () => phoneVerificationToken,
-      findKakaoPhoneVerificationToken: async () => kakaoToken,
-      findUser: async () => user,
-      consumePhoneVerificationToken,
-      consumeKakaoPhoneVerificationToken,
+      ...services.repository,
+      findUserByIdentity: jest.fn<() => Promise<User | null>>().mockResolvedValue(user),
+      createKakaoUser: jest.fn<() => Promise<User>>(),
     } as unknown as AuthRepository;
-    const service = new AuthService(repository, {} as JwtService, {} as ConfigService, {} as UserService);
+    const service = new AuthService(repository, services.jwtService, services.configService, {} as UserService);
 
     await expect(
-      service.completeKakaoPhoneSignup(
-        {
-          phoneVerificationToken: phoneVerificationToken.tokenHash,
-          kakaoPhoneVerificationToken: kakaoToken.tokenHash,
-        },
-        "device",
-      ),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
-    expect(consumePhoneVerificationToken).not.toHaveBeenCalled();
-    expect(consumeKakaoPhoneVerificationToken).not.toHaveBeenCalled();
+      service.loginWithKakao({ providerUserId: "kakao-user", email: user.email }, "device"),
+    ).resolves.toEqual({ accessToken: "access", refreshToken: "refresh" });
+    expect(repository.createKakaoUser).not.toHaveBeenCalled();
   });
 
-  it("maps kakao token consume race to unauthorized", async () => {
-    const phoneVerificationToken: PhoneVerificationToken = {
-      tokenHash: "signup-token",
-      phoneE164: "+821011111111",
-      verificationId: "df881b8f-90ed-4358-8581-5e5c132ac01d",
-      expiresAt: new Date(Date.now() + 60_000),
-      usedAt: null,
-      createdAt: new Date(),
-    };
-    const kakaoToken: KakaoPhoneVerificationToken = {
-      tokenHash: "kakao-token",
-      userId: null,
-      providerUserId: "kakao-user",
-      email: "user@example.com",
-      expiresAt: new Date(Date.now() + 60_000),
-      usedAt: null,
-      createdAt: new Date(),
-    };
+  it("creates a user on first kakao login and issues tokens", async () => {
+    const services = tokenServices();
     const repository = {
-      findPhoneVerificationToken: async () => phoneVerificationToken,
-      findKakaoPhoneVerificationToken: async () => kakaoToken,
-      createKakaoPhoneUserWithTokens: async () => {
-        throw new KakaoPhoneVerificationTokenConsumeFailedError();
-      },
+      ...services.repository,
+      findUserByIdentity: jest.fn<() => Promise<null>>().mockResolvedValue(null),
+      createKakaoUser: jest.fn<() => Promise<User>>().mockResolvedValue(user),
     } as unknown as AuthRepository;
-    const service = new AuthService(repository, {} as JwtService, {} as ConfigService, {} as UserService);
+    const service = new AuthService(repository, services.jwtService, services.configService, {} as UserService);
 
     await expect(
-      service.completeKakaoPhoneSignup(
-        {
-          phoneVerificationToken: phoneVerificationToken.tokenHash,
-          kakaoPhoneVerificationToken: kakaoToken.tokenHash,
-        },
-        "device",
-      ),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+      service.loginWithKakao({ providerUserId: "kakao-user", email: user.email }, "device"),
+    ).resolves.toEqual({ accessToken: "access", refreshToken: "refresh" });
+    expect(repository.createKakaoUser).toHaveBeenCalledWith(
+      expect.objectContaining({ providerUserId: "kakao-user", email: user.email }),
+    );
+  });
+
+  it("falls back to a generated email when kakao profile has none", async () => {
+    const services = tokenServices();
+    const repository = {
+      ...services.repository,
+      findUserByIdentity: jest.fn<() => Promise<null>>().mockResolvedValue(null),
+      createKakaoUser: jest.fn<() => Promise<User>>().mockResolvedValue(user),
+    } as unknown as AuthRepository;
+    const service = new AuthService(repository, services.jwtService, services.configService, {} as UserService);
+
+    await service.loginWithKakao({ providerUserId: "kakao-user" }, "device");
+
+    expect(repository.createKakaoUser).toHaveBeenCalledWith(
+      expect.objectContaining({ email: "kakao_kakao-user@kakao.local" }),
+    );
   });
 
   it("rotates refresh token on refresh", async () => {
@@ -251,42 +207,17 @@ describe("AuthService", () => {
     expect(repository.deleteRefreshToken).toHaveBeenCalledWith(user.userId, "device");
   });
 
-  it("completes kakao phone signup and issues tokens", async () => {
-    const phoneVerificationToken: PhoneVerificationToken = {
-      tokenHash: "signup-token",
-      phoneE164: "+821011111111",
-      verificationId: "df881b8f-90ed-4358-8581-5e5c132ac01d",
-      expiresAt: new Date(Date.now() + 60_000),
-      usedAt: null,
-      createdAt: new Date(),
-    };
-    const kakaoToken: KakaoPhoneVerificationToken = {
-      tokenHash: "kakao-token",
-      userId: null,
-      providerUserId: "kakao-user",
-      email: "user@example.com",
-      expiresAt: new Date(Date.now() + 60_000),
-      usedAt: null,
-      createdAt: new Date(),
-    };
-    const services = tokenServices();
+  it("maps duplicate kakao signup to bad request", async () => {
     const repository = {
-      ...services.repository,
-      findPhoneVerificationToken: jest
-        .fn<() => Promise<PhoneVerificationToken | undefined>>()
-        .mockResolvedValue(phoneVerificationToken),
-      findKakaoPhoneVerificationToken: jest
-        .fn<() => Promise<KakaoPhoneVerificationToken | undefined>>()
-        .mockResolvedValue(kakaoToken),
-      createKakaoPhoneUserWithTokens: jest.fn<() => Promise<User>>().mockResolvedValue(user),
+      findUserByIdentity: async () => null,
+      createKakaoUser: async () => {
+        throw { code: "23505" };
+      },
     } as unknown as AuthRepository;
-    const service = new AuthService(repository, services.jwtService, services.configService, {} as UserService);
+    const service = new AuthService(repository, {} as JwtService, {} as ConfigService, {} as UserService);
 
-    await expect(
-      service.completeKakaoPhoneSignup(
-        { phoneVerificationToken: "signup-token", kakaoPhoneVerificationToken: "kakao-token" },
-        "device",
-      ),
-    ).resolves.toEqual({ accessToken: "access", refreshToken: "refresh" });
+    await expect(service.loginWithKakao({ providerUserId: "kakao-user" }, "device")).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 });
