@@ -4,6 +4,7 @@ import { JwtService, JwtSignOptions } from "@nestjs/jwt";
 import * as bcrypt from "bcrypt";
 import { v4 as uuidv4 } from "uuid";
 import { CustomBadRequestException, CustomUnauthorizedException } from "src/common/errors/custom-exceptions";
+import { isPgError } from "src/common/errors/pg-error";
 import { User } from "src/modules/database/schema";
 import { UserService } from "src/modules/user/user.service";
 import { AuthErrorMessage } from "./auth.error";
@@ -195,13 +196,9 @@ export class AuthService {
     try {
       return await operation;
     } catch (error) {
-      if (this.isUniqueViolation(error)) throw new CustomBadRequestException(AuthErrorMessage.DuplicateUser);
+      if (isPgError(error, "23505")) throw new CustomBadRequestException(AuthErrorMessage.DuplicateUser);
       throw error;
     }
-  }
-
-  private isUniqueViolation(error: unknown) {
-    return typeof error === "object" && error !== null && "code" in error && error.code === "23505";
   }
 
   private async issueTokens(user: User, deviceId: string) {
