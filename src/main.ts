@@ -46,7 +46,7 @@ const bootstrap = async () => {
     credentials: true,
   });
 
-  await app.listen(5500);
+  await app.listen(Number(process.env.PORT ?? 5500));
 };
 
 bootstrap();
